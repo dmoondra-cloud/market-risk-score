@@ -14,12 +14,16 @@ class CoStarExtractor:
             for i, page in enumerate(pdf.pages, 1):
                 self.pages[i] = page.extract_text()
 
-    def extract_metric(self, pattern: str, page_range: list, return_type: str = "float") -> Optional[float]:
-        for page_num in page_range:
+    def extract_metric(self, pattern: str, page_range: list = None, return_type: str = "float") -> Optional[float]:
+        """Extract metric from PDF. If page_range is None, searches all pages."""
+
+        pages_to_search = page_range if page_range else list(self.pages.keys())
+
+        for page_num in pages_to_search:
             if page_num not in self.pages:
                 continue
             text = self.pages[page_num]
-            match = re.search(pattern, text, re.IGNORECASE)
+            match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
             if match:
                 value = match.group(1) if match.groups() else match.group(0)
                 value = value.strip().replace('%', '').replace(',', '')
@@ -38,31 +42,32 @@ class CoStarExtractor:
         return None
 
     def extract_all_metrics(self) -> Dict:
+        """Extract all metrics from CoStar report - searches all pages dynamically."""
         metrics = {}
 
-        # Demand Strength
-        metrics['job_growth'] = self.extract_metric(r'JOB GROWTH.*?([0-9.]+)%', [120, 121])
-        metrics['unemployment_rate'] = self.extract_metric(r'Unemployment.*?([0-9.]+)%', [120, 121, 122])
-        metrics['population_growth'] = self.extract_metric(r'POPULATION GROWTH.*?([0-9.]+)%', [122, 123])
-        metrics['household_growth'] = self.extract_metric(r'Household.*?([0-9.]+)%', [122, 123])
-        metrics['current_vacancy_rate'] = self.extract_metric(r'(?:OVERALL|STABILIZED)\s+VACANCY.*?([0-9.]+)%', [87, 88, 106, 107])
-        metrics['net_absorption'] = self.extract_metric(r'ABSORPTION.*?([0-9,]+)\s+units?', [87, 106])
-        metrics['avg_asking_rent'] = self.extract_metric(r'Avg\.\s+Rent.*?\$([0-9,]+)', [9, 10, 11])
-        metrics['avg_effective_rent'] = self.extract_metric(r'Effective Rent.*?\$([0-9,]+)', [9, 10, 11])
-        metrics['rent_per_sf'] = self.extract_metric(r'Rent\s+Per\s+SF.*?\$([0-9.]+)', [9, 10, 11])
+        # Demand Strength - Search all pages
+        metrics['job_growth'] = self.extract_metric(r'JOB\s+GROWTH[^\n]*?([0-9.]+)\s*%')
+        metrics['unemployment_rate'] = self.extract_metric(r'[Uu]nemployment\s+[Rr]ate[^\n]*?([0-9.]+)\s*%')
+        metrics['population_growth'] = self.extract_metric(r'POPULATION\s+GROWTH[^\n]*?([0-9.]+)\s*%')
+        metrics['household_growth'] = self.extract_metric(r'[Hh]ousehold\s+[Gg]rowth[^\n]*?([0-9.]+)\s*%')
+        metrics['current_vacancy_rate'] = self.extract_metric(r'(?:OVERALL|STABILIZED|Current)\s+VACANCY[^\n]*?([0-9.]+)\s*%')
+        metrics['net_absorption'] = self.extract_metric(r'ABSORPTION[^\n]*?([0-9,]+)\s+units?')
+        metrics['avg_asking_rent'] = self.extract_metric(r'Avg\.?\s+(?:Asking\s+)?Rent[^\n]*?\$\s*([0-9,]+)')
+        metrics['avg_effective_rent'] = self.extract_metric(r'Effective\s+Rent[^\n]*?\$\s*([0-9,]+)')
+        metrics['rent_per_sf'] = self.extract_metric(r'Rent\s+Per\s+SF[^\n]*?\$\s*([0-9.]+)')
 
-        # Supply Pressure
-        metrics['under_construction_units'] = self.extract_metric(r'Under\s+Construction.*?([0-9,]+)\s+units?', [56, 57, 58, 59, 60, 113, 114])
-        metrics['deliveries_12_months'] = self.extract_metric(r'Deliveries\s+(?:Past\s+)?12\s+(?:Months?|Mo).*?([0-9,]+)\s+units?', [61, 93])
+        # Supply Pressure - Search all pages
+        metrics['under_construction_units'] = self.extract_metric(r'Under\s+Construction[^\n]*?([0-9,]+)\s+units?')
+        metrics['deliveries_12_months'] = self.extract_metric(r'Deliveries.*?(?:Past\s+)?12\s+(?:Months?|Mo)[^\n]*?([0-9,]+)\s+units?')
 
-        # Sales/Financing
-        metrics['sales_volume_12m'] = self.extract_metric(r'Sales.*?12\s+(?:Months?|Mo).*?([0-9,]+)', [72, 96, 117])
-        metrics['cap_rate'] = self.extract_metric(r'Cap\s+Rate.*?([0-9.]+)%', [75, 76])
-        metrics['price_per_unit'] = self.extract_metric(r'Price\s+Per\s+Unit.*?\$([0-9,]+)', [72, 75])
+        # Sales/Financing - Search all pages
+        metrics['sales_volume_12m'] = self.extract_metric(r'Sales.*?12\s+(?:Months?|Mo)[^\n]*?([0-9,]+)')
+        metrics['cap_rate'] = self.extract_metric(r'Cap\s+Rate[^\n]*?([0-9.]+)\s*%')
+        metrics['price_per_unit'] = self.extract_metric(r'Price\s+Per\s+Unit[^\n]*?\$\s*([0-9,]+)')
 
-        # Rent Comp Data
-        metrics['num_rent_comps'] = self.extract_metric(r'No\.\s+Rent\s+Comps\s*:?\s*([0-9]+)', [9, 10, 11], return_type='int')
-        metrics['avg_rent_comp_vacancy'] = self.extract_metric(r'Avg\.\s+Vacancy.*?([0-9.]+)%', [9, 10, 11])
+        # Rent Comp Data - Search all pages
+        metrics['num_rent_comps'] = self.extract_metric(r'No\.?\s+Rent\s+Comps\s*:?\s*([0-9]+)', return_type='int')
+        metrics['avg_rent_comp_vacancy'] = self.extract_metric(r'Avg\.?\s+Vacancy[^\n]*?([0-9.]+)\s*%')
 
         return metrics
 
