@@ -452,7 +452,7 @@ if costar_file and manual_file and run_clicked and not st.session_state.report_r
 
                                     # Display each row inline
                                     for idx, row in enumerate(var_data):
-                                        col1, col2, col3, col4 = st.columns([1.3, 1.1, 1, 0.8])
+                                        col1, col2, col3 = st.columns([1.3, 1.1, 1.3])
 
                                         with col1:
                                             st.write(row["Variable"])
@@ -462,45 +462,38 @@ if costar_file and manual_file and run_clicked and not st.session_state.report_r
 
                                         with col3:
                                             item_name = row["Variable"]
-                                            manual_key = f"{main_category}_{subcat}_{item_name}".replace(" ", "_").replace("(", "").replace(")", "").replace("%", "")
+                                            manual_key = f"{main_category}_{subcat}_{item_name}".replace(" ", "_").replace("(", "").replace(")", "").replace("%", "").replace("$", "")
 
                                             # Determine unit type for this field
                                             unit_type = None
+                                            format_hint = "Enter value"
                                             if "rent" in item_name.lower() and "%" not in item_name.lower():
                                                 if "per" in item_name.lower() or "psf" in item_name.lower() or "sf" in item_name.lower():
                                                     unit_type = "psf"
+                                                    format_hint = "e.g. 2.21"
                                                 else:
                                                     unit_type = "currency"
+                                                    format_hint = "e.g. 1290"
                                             elif "%" in item_name.lower() or "rate" in item_name.lower():
                                                 unit_type = "percent"
+                                                format_hint = "e.g. 4"
 
-                                            manual_inputs[manual_key] = st.text_input(
+                                            input_val = st.text_input(
                                                 label=f"Input for {item_name}",
                                                 value="",
                                                 key=manual_key,
                                                 label_visibility="collapsed",
-                                                placeholder="Enter value"
+                                                placeholder=format_hint
                                             )
+                                            manual_inputs[manual_key] = input_val
 
-                                        with col4:
-                                            # Show format hint and real-time preview
-                                            manual_value = manual_inputs.get(manual_key, "")
-                                            if manual_value:
+                                            # Show real-time formatted preview below input
+                                            if input_val:
                                                 try:
-                                                    formatted = format_value(float(manual_value), unit_type)
-                                                    st.markdown(f"<span style='color: #1e3a8a; font-weight: 600; font-size: 12px;'>{formatted}</span>", unsafe_allow_html=True)
-                                                except:
-                                                    st.markdown("<span style='color: #e11d48; font-size: 12px;'>Invalid</span>", unsafe_allow_html=True)
-                                            else:
-                                                # Show format hint
-                                                if unit_type == "percent":
-                                                    st.markdown("<span style='color: #cbd5e1; font-size: 11px;'>e.g. 4</span>", unsafe_allow_html=True)
-                                                elif unit_type == "currency":
-                                                    st.markdown("<span style='color: #cbd5e1; font-size: 11px;'>e.g. 1290</span>", unsafe_allow_html=True)
-                                                elif unit_type == "psf":
-                                                    st.markdown("<span style='color: #cbd5e1; font-size: 11px;'>e.g. 2.21</span>", unsafe_allow_html=True)
-                                                else:
-                                                    st.markdown("<span style='color: #cbd5e1; font-size: 11px;'>number</span>", unsafe_allow_html=True)
+                                                    formatted = format_value(float(input_val), unit_type)
+                                                    st.markdown(f"<div style='color: #1e3a8a; font-weight: 700; font-size: 13px; margin-top: -30px; padding-left: 12px;'>{formatted}</div>", unsafe_allow_html=True)
+                                                except ValueError:
+                                                    st.markdown("<div style='color: #e11d48; font-weight: 600; font-size: 12px; margin-top: -30px; padding-left: 12px;'>⚠️ Invalid number</div>", unsafe_allow_html=True)
 
                                 subcat_num += 1
                             else:
