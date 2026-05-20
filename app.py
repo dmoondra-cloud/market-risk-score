@@ -34,10 +34,18 @@ def format_value(value, unit_type=None):
 # Custom CSS for professional app styling
 st.markdown("""
 <style>
-    /* Overall app background */
-    .main {
-        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-        min-height: 100vh;
+    /* Overall app background - apply to all main containers */
+    body, .stMainBlockContainer, [data-testid="stAppViewContainer"], .main {
+        background: linear-gradient(135deg, #f0f4f8 0%, #e8ecf1 100%) !important;
+    }
+
+    /* Ensure container has background */
+    [data-testid="stAppViewContainer"] {
+        background: linear-gradient(135deg, #f0f4f8 0%, #e8ecf1 100%) !important;
+    }
+
+    .stMainBlockContainer {
+        background: linear-gradient(135deg, #f0f4f8 0%, #e8ecf1 100%) !important;
     }
 
     /* Sidebar background */
@@ -66,6 +74,33 @@ st.markdown("""
     }
 
     div.stButton > button:disabled {
+        background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+        color: #cbd5e1;
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+
+    /* Download button - match Run button styling */
+    [data-testid="stDownloadButton"] button {
+        background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 14px 28px;
+        font-weight: 700;
+        font-size: 15px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 12px rgba(30, 58, 138, 0.25);
+        letter-spacing: 0.3px;
+    }
+
+    [data-testid="stDownloadButton"] button:hover:not(:disabled) {
+        background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+        box-shadow: 0 6px 20px rgba(30, 58, 138, 0.4);
+        transform: translateY(-2px);
+    }
+
+    [data-testid="stDownloadButton"] button:disabled {
         background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
         color: #cbd5e1;
         cursor: not-allowed;
@@ -131,31 +166,38 @@ st.markdown("""
         background-color: #ecf0f1 !important;
     }
 
-    /* Main category styling */
+    /* Main category styling - LARGEST */
     .main-category {
         background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
         color: white;
         font-weight: 800;
-        padding: 16px;
-        margin: 24px 0 16px 0;
+        padding: 18px;
+        margin: 28px 0 18px 0;
         border-radius: 8px;
-        font-size: 17px;
-        letter-spacing: 0.8px;
-        box-shadow: 0 4px 16px rgba(30, 58, 138, 0.2);
+        font-size: 22px;
+        letter-spacing: 1px;
+        box-shadow: 0 6px 20px rgba(30, 58, 138, 0.3);
     }
 
-    /* Subcategory styling */
+    /* Subcategory styling - MEDIUM */
     .subcategory {
-        background: linear-gradient(90deg, #f0f4f9 0%, #ffffff 100%);
+        background: linear-gradient(90deg, #e0e7ff 0%, #f0f4f9 100%);
         color: #0f172a;
         font-weight: 700;
         padding: 12px 14px;
-        margin: 14px 0 10px 0;
+        margin: 16px 0 12px 0;
         border-left: 5px solid #1e3a8a;
         border-radius: 4px;
-        font-size: 14px;
-        letter-spacing: 0.3px;
+        font-size: 16px;
+        letter-spacing: 0.5px;
         box-shadow: 0 2px 6px rgba(30, 58, 138, 0.1);
+    }
+
+    /* Table header styling - SMALLER */
+    .table-header {
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
     }
 
     /* Input styling */
@@ -372,29 +414,34 @@ if costar_file and manual_file and run_clicked:
                                 input_cols[item_name] = len(var_data) - 1
 
                             if var_data:
-                                # Create 3-column table: Variable | Extracted Value | Manual Input
-                                col1, col2, col3 = st.columns([1.2, 1, 1])
-
-                                with col1:
+                                # Display table with headers
+                                head_col1, head_col2, head_col3 = st.columns([1.3, 1.1, 1.1])
+                                with head_col1:
                                     st.markdown("**Variable**")
-                                    for row in var_data:
+                                with head_col2:
+                                    st.markdown("**Extracted Value**")
+                                with head_col3:
+                                    st.markdown("**Manual Input**")
+
+                                # Display each row inline
+                                for idx, row in enumerate(var_data):
+                                    col1, col2, col3 = st.columns([1.3, 1.1, 1.1])
+
+                                    with col1:
                                         st.write(row["Variable"])
 
-                                with col2:
-                                    st.markdown("**Extracted Value**")
-                                    for row in var_data:
+                                    with col2:
                                         st.write(row["Extracted Value"])
 
-                                with col3:
-                                    st.markdown("**Manual Input**")
-                                    for idx, row in enumerate(var_data):
+                                    with col3:
                                         item_name = row["Variable"]
-                                        manual_key = f"{main_category}_{subcat}_{item_name}".replace(" ", "_")
+                                        manual_key = f"{main_category}_{subcat}_{item_name}".replace(" ", "_").replace("(", "").replace(")", "").replace("%", "")
                                         manual_inputs[manual_key] = st.text_input(
                                             label=f"Input for {item_name}",
                                             value="",
                                             key=manual_key,
-                                            label_visibility="collapsed"
+                                            label_visibility="collapsed",
+                                            placeholder="Enter value"
                                         )
 
                             subcat_num += 1
