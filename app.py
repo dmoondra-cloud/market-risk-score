@@ -38,6 +38,23 @@ if costar_file and manual_file:
                     metrics = extractor.extract_all_metrics()
                     st.write("✅ CoStar extraction complete")
 
+                    # Show extraction summary
+                    found_metrics = sum(1 for v in metrics.values() if v is not None)
+                    total_metrics = len(metrics)
+                    st.write(f"📈 Found {found_metrics}/{total_metrics} metrics")
+
+                    # Debugging: show which metrics were not found
+                    missing = [k for k, v in metrics.items() if v is None]
+                    if missing:
+                        with st.expander("ℹ️ Debug: Metrics not found"):
+                            st.write("**These metrics were not found in the CoStar PDF:**")
+                            st.write(", ".join(missing))
+                            st.write("This might be because:")
+                            st.write("1. The PDF has different formatting or text layout")
+                            st.write("2. The metric name uses different wording in the report")
+                            st.write("3. The data is in a different section of the PDF")
+                            st.info("📋 Tip: You can fill these missing values using the Manual Data document")
+
                 # Define scorecard structure
                 scorecard_data = {
                     "A. Demand Strength": {
@@ -107,8 +124,10 @@ if costar_file and manual_file:
                     st.markdown(f"#### {main_category}")
 
                     table_data = []
+                    subcat_num = 1
                     for subcat, items in subcategories.items():
                         if isinstance(items, dict):
+                            subcat_label = f"{subcat_num}. {subcat}"
                             for item_name, item_value in items.items():
                                 if item_value is None:
                                     display_value = "❌ Not found"
@@ -118,16 +137,18 @@ if costar_file and manual_file:
                                     display_value = str(item_value)
 
                                 table_data.append({
-                                    "Subcategory": subcat,
+                                    "Category": subcat_label,
                                     "Variable": item_name,
                                     "Value": display_value
                                 })
+                            subcat_num += 1
                         else:
                             table_data.append({
-                                "Subcategory": subcat,
+                                "Category": f"{subcat_num}. {subcat}",
                                 "Variable": "-",
                                 "Value": items
                             })
+                            subcat_num += 1
 
                     if table_data:
                         df = pd.DataFrame(table_data)
