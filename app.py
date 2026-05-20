@@ -10,90 +10,165 @@ from openpyxl.styles import Font, PatternFill, Alignment
 
 st.set_page_config(page_title="Market Risk Score Generator", page_icon="📊", layout="wide")
 
-# Custom CSS for professional styling with cool tones
+# Formatting function for values
+def format_value(value, unit_type=None):
+    """Format values based on type"""
+    if value is None or value == "":
+        return "❌ Not found"
+    if isinstance(value, float):
+        if unit_type == "currency":  # Rents, prices
+            return f"${value:,.0f}"
+        elif unit_type == "percent":  # Percentages
+            return f"{value:.2f}%"
+        elif unit_type == "psf":  # Per square foot
+            return f"${value:.2f}"
+        else:
+            return f"{value:.2f}"
+    elif isinstance(value, int):
+        if unit_type == "currency":
+            return f"${value:,}"
+        else:
+            return f"{value:,}"
+    return str(value)
+
+# Custom CSS for professional app styling
 st.markdown("""
 <style>
-    /* Button styling - Cool professional deep blue */
+    /* Overall app background */
+    .main {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        min-height: 100vh;
+    }
+
+    /* Sidebar background */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    }
+
+    /* Button styling - Professional deep blue gradient */
     div.stButton > button {
         background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);
         color: white;
         border: none;
         border-radius: 8px;
-        padding: 12px 24px;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        box-shadow: 0 2px 8px rgba(30, 58, 138, 0.2);
+        padding: 14px 28px;
+        font-weight: 700;
+        font-size: 15px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 12px rgba(30, 58, 138, 0.25);
+        letter-spacing: 0.3px;
     }
 
-    div.stButton > button:hover {
+    div.stButton > button:hover:not(:disabled) {
         background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
-        box-shadow: 0 4px 16px rgba(30, 58, 138, 0.35);
+        box-shadow: 0 6px 20px rgba(30, 58, 138, 0.4);
         transform: translateY(-2px);
     }
 
-    /* Table styling - Cool professional colors */
+    div.stButton > button:disabled {
+        background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+        color: #cbd5e1;
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+
+    /* Table styling - Professional and polished */
     .dataframe {
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        border-collapse: collapse;
     }
 
     /* Dataframe header styling */
     .dataframe thead th {
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
         color: white !important;
-        font-weight: 700 !important;
-        padding: 14px !important;
+        font-weight: 800 !important;
+        padding: 16px 14px !important;
         text-align: left !important;
         border-bottom: 2px solid #1e3a8a !important;
+        font-size: 13px !important;
+        letter-spacing: 0.5px !important;
     }
 
     /* Dataframe row styling */
     .dataframe tbody td {
-        padding: 12px 14px !important;
-        border-color: #d1d5db !important;
+        padding: 14px 14px !important;
+        border-color: #cbd5e1 !important;
+        font-size: 14px !important;
+        color: #1e293b !important;
+        font-weight: 500 !important;
     }
 
     .dataframe tbody tr:nth-child(even) {
-        background-color: #f3f7fb !important;
+        background-color: #f8fafc !important;
+    }
+
+    .dataframe tbody tr:nth-child(odd) {
+        background-color: #ffffff !important;
     }
 
     .dataframe tbody tr:hover {
         background-color: #e0e7ff !important;
+        transition: background-color 0.2s ease;
+    }
+
+    /* Variable column - emphasis */
+    .dataframe tbody td:nth-child(1) {
+        font-weight: 600 !important;
+        color: #0f172a !important;
+    }
+
+    /* Value column - emphasis */
+    .dataframe tbody td:nth-child(2) {
+        font-weight: 600 !important;
+        color: #1e3a8a !important;
+    }
+
+    /* Manual input column - editable emphasis */
+    .dataframe tbody td:nth-child(3) {
+        font-weight: 500 !important;
+        color: #0891b2 !important;
+        background-color: #ecf0f1 !important;
     }
 
     /* Main category styling */
     .main-category {
         background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
         color: white;
-        font-weight: 700;
-        padding: 14px;
-        margin: 20px 0 12px 0;
-        border-radius: 6px;
-        font-size: 16px;
-        letter-spacing: 0.5px;
-        box-shadow: 0 2px 8px rgba(30, 58, 138, 0.15);
+        font-weight: 800;
+        padding: 16px;
+        margin: 24px 0 16px 0;
+        border-radius: 8px;
+        font-size: 17px;
+        letter-spacing: 0.8px;
+        box-shadow: 0 4px 16px rgba(30, 58, 138, 0.2);
     }
 
     /* Subcategory styling */
     .subcategory {
-        background-color: #f0f4f9;
+        background: linear-gradient(90deg, #f0f4f9 0%, #ffffff 100%);
         color: #0f172a;
-        font-weight: 600;
-        padding: 10px 12px;
-        margin: 12px 0 8px 0;
-        border-left: 4px solid #1e3a8a;
+        font-weight: 700;
+        padding: 12px 14px;
+        margin: 14px 0 10px 0;
+        border-left: 5px solid #1e3a8a;
         border-radius: 4px;
         font-size: 14px;
+        letter-spacing: 0.3px;
+        box-shadow: 0 2px 6px rgba(30, 58, 138, 0.1);
     }
 
-    /* Variable and Value column distinction */
-    .data-variable {
-        color: #0f172a;
-        font-weight: 500;
+    /* Input styling */
+    input {
+        border-radius: 6px !important;
+        border: 2px solid #cbd5e1 !important;
+        padding: 10px 12px !important;
+        font-size: 14px !important;
     }
 
-    .data-value {
-        color: #1e3a8a;
-        font-weight: 600;
+    input:focus {
+        border-color: #1e3a8a !important;
+        box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1) !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -129,6 +204,18 @@ with run_col:
     )
 
 download_placeholder = download_col.empty()
+
+# Show disabled download button initially
+if not (costar_file and manual_file and run_clicked):
+    with download_placeholder:
+        st.download_button(
+            label="📥 Download Market Risk Score",
+            data=b"",
+            file_name="market_risk_score.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+            disabled=True
+        )
 
 # Only proceed if both files exist AND run button was clicked
 if costar_file and manual_file and run_clicked:
@@ -227,8 +314,11 @@ if costar_file and manual_file and run_clicked:
                     }
                 }
 
-                # Display scorecard as hierarchical structure with color coding
+                # Display scorecard as hierarchical structure with manual input
                 st.markdown("### Scorecard: Category Details")
+
+                # Dictionary to store manual inputs
+                manual_inputs = {}
 
                 for main_category, subcategories in scorecard_data.items():
                     # Main category heading with color
@@ -248,33 +338,64 @@ if costar_file and manual_file and run_clicked:
                             </div>
                             """, unsafe_allow_html=True)
 
-                            # Display variables under this subcategory
+                            # Display variables with manual input column
                             var_data = []
+                            input_cols = {}
+
                             for item_name, item_value in items.items():
+                                # Format the extracted value
                                 if item_value is None:
                                     display_value = "❌ Not found"
-                                elif isinstance(item_value, float):
-                                    display_value = f"{item_value:.2f}"
+                                    unit_type = None
+                                elif isinstance(item_value, str) and "[From Manual Data]" in item_value:
+                                    display_value = item_value
+                                    unit_type = None
                                 else:
-                                    display_value = str(item_value)
+                                    # Determine unit type for formatting
+                                    unit_type = None
+                                    if "rent" in item_name.lower() and "%" not in item_name.lower():
+                                        if "per" in item_name.lower() or "psf" in item_name.lower() or "sf" in item_name.lower():
+                                            unit_type = "psf"
+                                        else:
+                                            unit_type = "currency"
+                                    elif "%" in item_name.lower() or "rate" in item_name.lower():
+                                        unit_type = "percent"
+
+                                    display_value = format_value(item_value, unit_type)
 
                                 var_data.append({
                                     "Variable": item_name,
-                                    "Value": display_value
+                                    "Extracted Value": display_value,
+                                    "Manual Input": ""
                                 })
 
+                                input_cols[item_name] = len(var_data) - 1
+
                             if var_data:
-                                df = pd.DataFrame(var_data)
-                                # Display table without interactive features
-                                st.dataframe(
-                                    df,
-                                    use_container_width=True,
-                                    hide_index=True,
-                                    column_config={
-                                        "Variable": st.column_config.TextColumn(width="medium"),
-                                        "Value": st.column_config.TextColumn(width="medium"),
-                                    }
-                                )
+                                # Create 3-column table: Variable | Extracted Value | Manual Input
+                                col1, col2, col3 = st.columns([1.2, 1, 1])
+
+                                with col1:
+                                    st.markdown("**Variable**")
+                                    for row in var_data:
+                                        st.write(row["Variable"])
+
+                                with col2:
+                                    st.markdown("**Extracted Value**")
+                                    for row in var_data:
+                                        st.write(row["Extracted Value"])
+
+                                with col3:
+                                    st.markdown("**Manual Input**")
+                                    for idx, row in enumerate(var_data):
+                                        item_name = row["Variable"]
+                                        manual_key = f"{main_category}_{subcat}_{item_name}".replace(" ", "_")
+                                        manual_inputs[manual_key] = st.text_input(
+                                            label=f"Input for {item_name}",
+                                            value="",
+                                            key=manual_key,
+                                            label_visibility="collapsed"
+                                        )
 
                             subcat_num += 1
                         else:
@@ -331,7 +452,7 @@ if costar_file and manual_file and run_clicked:
                 property_name_clean = property_name_input.replace(" ", "_") if property_name_input else "Property"
                 filename = f"{property_name_clean}_Market Risk Score_{date_str}.xlsx"
 
-                # Show download button in the placeholder
+                # Show download button in the placeholder (enabled after report runs)
                 with download_placeholder:
                     st.download_button(
                         label="📥 Download Market Risk Score",
@@ -340,6 +461,9 @@ if costar_file and manual_file and run_clicked:
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True
                     )
+
+                # Store manual inputs for later use if needed
+                st.session_state['manual_inputs'] = manual_inputs
 
             except Exception as e:
                 st.error(f"❌ Error: {str(e)}")
