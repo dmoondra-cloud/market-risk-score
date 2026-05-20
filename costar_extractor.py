@@ -46,28 +46,90 @@ class CoStarExtractor:
         metrics = {}
 
         # Demand Strength - Search all pages
-        metrics['job_growth'] = self.extract_metric(r'JOB\s+GROWTH[^\n]*?([0-9.]+)\s*%')
-        metrics['unemployment_rate'] = self.extract_metric(r'[Uu]nemployment\s+[Rr]ate[^\n]*?([0-9.]+)\s*%')
-        metrics['population_growth'] = self.extract_metric(r'POPULATION\s+GROWTH[^\n]*?([0-9.]+)\s*%')
-        metrics['household_growth'] = self.extract_metric(r'[Hh]ousehold\s+[Gg]rowth[^\n]*?([0-9.]+)\s*%')
-        metrics['current_vacancy_rate'] = self.extract_metric(r'(?:OVERALL|STABILIZED|Current)\s+VACANCY[^\n]*?([0-9.]+)\s*%')
-        metrics['net_absorption'] = self.extract_metric(r'ABSORPTION[^\n]*?([0-9,]+)\s+units?')
-        metrics['avg_asking_rent'] = self.extract_metric(r'Avg\.?\s+(?:Asking\s+)?Rent[^\n]*?\$\s*([0-9,]+)')
-        metrics['avg_effective_rent'] = self.extract_metric(r'Effective\s+Rent[^\n]*?\$\s*([0-9,]+)')
-        metrics['rent_per_sf'] = self.extract_metric(r'Rent\s+Per\s+SF[^\n]*?\$\s*([0-9.]+)')
+        # More flexible patterns to handle different formatting
+        metrics['job_growth'] = self.extract_metric(
+            r'(?:JOB\s+GROWTH|Job\s+Growth)[^\n]*?([0-9.]+)\s*%',
+            None
+        ) or self.extract_metric(r'Job\s+Growth[^\n]*?([0-9.]+)\s*%', None)
+
+        metrics['unemployment_rate'] = self.extract_metric(
+            r'(?:Unemployment|UNEMPLOYMENT)[\s\w]*?[Rr]ate[^\n]*?([0-9.]+)\s*%',
+            None
+        )
+
+        metrics['population_growth'] = self.extract_metric(
+            r'(?:POPULATION\s+GROWTH|Population\s+Growth)[^\n]*?([0-9.]+)\s*%',
+            None
+        ) or self.extract_metric(r'Population[\s\w]*?Growth[^\n]*?([0-9.]+)\s*%', None)
+
+        metrics['household_growth'] = self.extract_metric(
+            r'(?:HOUSEHOLD|Household)[\s\w]*?[Gg]rowth[^\n]*?([0-9.]+)\s*%',
+            None
+        )
+
+        metrics['current_vacancy_rate'] = self.extract_metric(
+            r'(?:VACANCY|STABILIZED|Vacancy|Current)[\s\w]*?(?:RATE|VACANCY|Rate)?[^\n]*?([0-9.]+)\s*%',
+            None
+        )
+
+        metrics['net_absorption'] = self.extract_metric(
+            r'(?:NET\s+)?ABSORPTION[^\n]*?([0-9,]+)\s+(?:units?|Units?)',
+            None
+        ) or self.extract_metric(r'Absorption[^\n]*?([0-9,]+)\s+(?:units?|Units?)', None)
+
+        metrics['avg_asking_rent'] = self.extract_metric(
+            r'(?:AVG|Avg|Average)[\s\.]?(?:ASKING\s+)?(?:RENT|Rent)[^\n]*?\$\s*([0-9,]+)',
+            None
+        ) or self.extract_metric(r'Asking[\s\w]*?Rent[^\n]*?\$\s*([0-9,]+)', None)
+
+        metrics['avg_effective_rent'] = self.extract_metric(
+            r'(?:EFFECTIVE|Effective)[\s\w]*?(?:RENT|Rent)[^\n]*?\$\s*([0-9,]+)',
+            None
+        )
+
+        metrics['rent_per_sf'] = self.extract_metric(
+            r'(?:RENT|Rent)[\s\w]*?(?:PER|per)[\s\w]*?(?:SF|SQ|SQFT)[^\n]*?\$\s*([0-9.]+)',
+            None
+        )
 
         # Supply Pressure - Search all pages
-        metrics['under_construction_units'] = self.extract_metric(r'Under\s+Construction[^\n]*?([0-9,]+)\s+units?')
-        metrics['deliveries_12_months'] = self.extract_metric(r'Deliveries.*?(?:Past\s+)?12\s+(?:Months?|Mo)[^\n]*?([0-9,]+)\s+units?')
+        metrics['under_construction_units'] = self.extract_metric(
+            r'(?:UNDER|Under)[\s\w]*?(?:CONSTRUCTION|Construction)[^\n]*?([0-9,]+)\s+(?:units?|Units?)',
+            None
+        )
+
+        metrics['deliveries_12_months'] = self.extract_metric(
+            r'(?:DELIVERIES|Deliveries)[\s\w]*?(?:PAST|Past)?[\s\w]*?12[\s\w]*?(?:MONTHS?|Mo|months?)[^\n]*?([0-9,]+)\s+(?:units?|Units?)',
+            None
+        ) or self.extract_metric(r'Deliveries[^\n]*?([0-9,]+)\s+(?:units?|Units?)', None)
 
         # Sales/Financing - Search all pages
-        metrics['sales_volume_12m'] = self.extract_metric(r'Sales.*?12\s+(?:Months?|Mo)[^\n]*?([0-9,]+)')
-        metrics['cap_rate'] = self.extract_metric(r'Cap\s+Rate[^\n]*?([0-9.]+)\s*%')
-        metrics['price_per_unit'] = self.extract_metric(r'Price\s+Per\s+Unit[^\n]*?\$\s*([0-9,]+)')
+        metrics['sales_volume_12m'] = self.extract_metric(
+            r'(?:SALES|Sales)[\s\w]*?12[\s\w]*?(?:MONTHS?|Mo|months?)[^\n]*?([0-9,]+)',
+            None
+        )
+
+        metrics['cap_rate'] = self.extract_metric(
+            r'(?:CAP|Cap)[\s\w]*?(?:RATE|Rate)[^\n]*?([0-9.]+)\s*%',
+            None
+        )
+
+        metrics['price_per_unit'] = self.extract_metric(
+            r'(?:PRICE|Price)[\s\w]*?(?:PER|per)[\s\w]*?(?:UNIT|Unit)[^\n]*?\$\s*([0-9,]+)',
+            None
+        )
 
         # Rent Comp Data - Search all pages
-        metrics['num_rent_comps'] = self.extract_metric(r'No\.?\s+Rent\s+Comps\s*:?\s*([0-9]+)', return_type='int')
-        metrics['avg_rent_comp_vacancy'] = self.extract_metric(r'Avg\.?\s+Vacancy[^\n]*?([0-9.]+)\s*%')
+        metrics['num_rent_comps'] = self.extract_metric(
+            r'(?:NO|No)\.?[\s\w]*?(?:RENT|Rent)[\s\w]*?(?:COMPS?|Comps?)[^\n]*?([0-9]+)',
+            None,
+            return_type='int'
+        )
+
+        metrics['avg_rent_comp_vacancy'] = self.extract_metric(
+            r'(?:AVG|Avg)[\s\.]?(?:VACANCY|Vacancy)[^\n]*?([0-9.]+)\s*%',
+            None
+        )
 
         return metrics
 
@@ -144,3 +206,22 @@ class CoStarExtractor:
             return None
 
         return sum(scores) / len(scores)
+
+    def get_pdf_text_sample(self, page_num: int = 1, lines: int = 50) -> str:
+        """Return sample text from a specific page for debugging."""
+        if page_num not in self.pages:
+            return f"Page {page_num} not found. PDF has {len(self.pages)} pages."
+        text = self.pages[page_num]
+        lines_list = text.split('\n')[:lines]
+        return '\n'.join(lines_list)
+
+    def get_all_pages_summary(self) -> Dict:
+        """Return summary of text content across all pages for debugging."""
+        summary = {}
+        for page_num, text in self.pages.items():
+            summary[f'page_{page_num}'] = {
+                'length': len(text),
+                'line_count': len(text.split('\n')),
+                'first_100_chars': text[:100] if text else ''
+            }
+        return summary
