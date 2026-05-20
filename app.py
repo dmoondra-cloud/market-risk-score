@@ -10,6 +10,94 @@ from openpyxl.styles import Font, PatternFill, Alignment
 
 st.set_page_config(page_title="Market Risk Score Generator", page_icon="📊", layout="wide")
 
+# Custom CSS for professional styling with cool tones
+st.markdown("""
+<style>
+    /* Button styling - Cool professional deep blue */
+    div.stButton > button {
+        background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 12px 24px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(30, 58, 138, 0.2);
+    }
+
+    div.stButton > button:hover {
+        background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+        box-shadow: 0 4px 16px rgba(30, 58, 138, 0.35);
+        transform: translateY(-2px);
+    }
+
+    /* Table styling - Cool professional colors */
+    .dataframe {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    /* Dataframe header styling */
+    .dataframe thead th {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
+        color: white !important;
+        font-weight: 700 !important;
+        padding: 14px !important;
+        text-align: left !important;
+        border-bottom: 2px solid #1e3a8a !important;
+    }
+
+    /* Dataframe row styling */
+    .dataframe tbody td {
+        padding: 12px 14px !important;
+        border-color: #d1d5db !important;
+    }
+
+    .dataframe tbody tr:nth-child(even) {
+        background-color: #f3f7fb !important;
+    }
+
+    .dataframe tbody tr:hover {
+        background-color: #e0e7ff !important;
+    }
+
+    /* Main category styling */
+    .main-category {
+        background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+        color: white;
+        font-weight: 700;
+        padding: 14px;
+        margin: 20px 0 12px 0;
+        border-radius: 6px;
+        font-size: 16px;
+        letter-spacing: 0.5px;
+        box-shadow: 0 2px 8px rgba(30, 58, 138, 0.15);
+    }
+
+    /* Subcategory styling */
+    .subcategory {
+        background-color: #f0f4f9;
+        color: #0f172a;
+        font-weight: 600;
+        padding: 10px 12px;
+        margin: 12px 0 8px 0;
+        border-left: 4px solid #1e3a8a;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+
+    /* Variable and Value column distinction */
+    .data-variable {
+        color: #0f172a;
+        font-weight: 500;
+    }
+
+    .data-value {
+        color: #1e3a8a;
+        font-weight: 600;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 st.title("📊 Market Risk Score Generator")
 
 # Property name input
@@ -21,6 +109,11 @@ col1, col2 = st.columns(2)
 with col1:
     st.subheader("📄 CoStar Report")
     costar_file = st.file_uploader("Upload CoStar PDF", type="pdf", key="costar")
+    # Auto-recognize property name from filename
+    if costar_file and not st.session_state.get('property_name_set'):
+        property_name_from_file = costar_file.name.replace('.pdf', '').replace('_', ' ')
+        st.session_state['property_name'] = property_name_from_file
+        st.session_state['property_name_set'] = True
 
 with col2:
     st.subheader("📋 Manual Data Document")
@@ -131,17 +224,26 @@ if costar_file and manual_file:
                     }
                 }
 
-                # Display scorecard as hierarchical structure (no repeated categories)
+                # Display scorecard as hierarchical structure with color coding
                 st.markdown("### Scorecard: Category Details")
 
                 for main_category, subcategories in scorecard_data.items():
-                    st.markdown(f"#### {main_category}")
+                    # Main category heading with color
+                    st.markdown(f"""
+                    <div class="main-category">
+                    {main_category}
+                    </div>
+                    """, unsafe_allow_html=True)
 
                     subcat_num = 1
                     for subcat, items in subcategories.items():
                         if isinstance(items, dict):
-                            # Display subcategory name once
-                            st.markdown(f"**{subcat_num}. {subcat}**")
+                            # Subcategory with color
+                            st.markdown(f"""
+                            <div class="subcategory">
+                            {subcat_num}. {subcat}
+                            </div>
+                            """, unsafe_allow_html=True)
 
                             # Display variables under this subcategory
                             var_data = []
@@ -160,17 +262,30 @@ if costar_file and manual_file:
 
                             if var_data:
                                 df = pd.DataFrame(var_data)
-                                # Use st.table() to remove column formatting options
-                                st.table(df)
+                                # Use dataframe with disabled interactions and custom styling
+                                st.dataframe(
+                                    df,
+                                    use_container_width=True,
+                                    hide_index=True,
+                                    column_config={
+                                        "Variable": st.column_config.TextColumn(width="medium"),
+                                        "Value": st.column_config.TextColumn(width="medium"),
+                                    },
+                                    disabled=True
+                                )
 
                             subcat_num += 1
                         else:
                             # Handle simple string items (no nested dict)
-                            st.markdown(f"**{subcat_num}. {subcat}**")
+                            st.markdown(f"""
+                            <div class="subcategory">
+                            {subcat_num}. {subcat}
+                            </div>
+                            """, unsafe_allow_html=True)
                             st.write(items)
                             subcat_num += 1
 
-                    st.markdown("---")
+                    st.markdown("")
 
                 # Summary
                 st.info("✅ = Data from CoStar | ⚠️ = Requires manual data | ❌ = Not found in CoStar")
