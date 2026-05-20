@@ -441,24 +441,24 @@ if costar_file and manual_file and run_clicked and not st.session_state.report_r
                                     input_cols[item_name] = len(var_data) - 1
 
                                 if var_data:
-                                    # Display table with headers
+                                    # Display table with headers - centered
                                     head_col1, head_col2, head_col3 = st.columns([1.3, 1.1, 1.1])
                                     with head_col1:
-                                        st.markdown("**Variable**")
+                                        st.markdown("<b>Variable</b>")
                                     with head_col2:
-                                        st.markdown("**Extracted Value**")
+                                        st.markdown("<div style='text-align: center;'><b>Extracted Value</b></div>", unsafe_allow_html=True)
                                     with head_col3:
-                                        st.markdown("**Manual Input**")
+                                        st.markdown("<div style='text-align: center;'><b>Manual Input</b></div>", unsafe_allow_html=True)
 
                                     # Display each row inline
                                     for idx, row in enumerate(var_data):
-                                        col1, col2, col3 = st.columns([1.3, 1.1, 1.3])
+                                        col1, col2, col3 = st.columns([1.3, 1.1, 1.1])
 
                                         with col1:
                                             st.write(row["Variable"])
 
                                         with col2:
-                                            st.write(row["Extracted Value"])
+                                            st.markdown(f"<div style='text-align: center;'>{row['Extracted Value']}</div>", unsafe_allow_html=True)
 
                                         with col3:
                                             item_name = row["Variable"]
@@ -466,34 +466,29 @@ if costar_file and manual_file and run_clicked and not st.session_state.report_r
 
                                             # Determine unit type for this field
                                             unit_type = None
-                                            format_hint = "Enter value"
                                             if "rent" in item_name.lower() and "%" not in item_name.lower():
                                                 if "per" in item_name.lower() or "psf" in item_name.lower() or "sf" in item_name.lower():
                                                     unit_type = "psf"
-                                                    format_hint = "e.g. 2.21"
                                                 else:
                                                     unit_type = "currency"
-                                                    format_hint = "e.g. 1290"
                                             elif "%" in item_name.lower() or "rate" in item_name.lower():
                                                 unit_type = "percent"
-                                                format_hint = "e.g. 4"
 
                                             input_val = st.text_input(
                                                 label=f"Input for {item_name}",
                                                 value="",
                                                 key=manual_key,
-                                                label_visibility="collapsed",
-                                                placeholder=format_hint
+                                                label_visibility="collapsed"
                                             )
                                             manual_inputs[manual_key] = input_val
 
-                                            # Show real-time formatted preview below input
-                                            if input_val:
+                                            # Show real-time formatted preview
+                                            if input_val and input_val.strip():
                                                 try:
                                                     formatted = format_value(float(input_val), unit_type)
-                                                    st.markdown(f"<div style='color: #1e3a8a; font-weight: 700; font-size: 13px; margin-top: -30px; padding-left: 12px;'>{formatted}</div>", unsafe_allow_html=True)
-                                                except ValueError:
-                                                    st.markdown("<div style='color: #e11d48; font-weight: 600; font-size: 12px; margin-top: -30px; padding-left: 12px;'>⚠️ Invalid number</div>", unsafe_allow_html=True)
+                                                    st.write(f"✓ {formatted}")
+                                                except (ValueError, TypeError):
+                                                    st.write("⚠️ Invalid")
 
                                 subcat_num += 1
                             else:
@@ -507,6 +502,11 @@ if costar_file and manual_file and run_clicked and not st.session_state.report_r
                                 subcat_num += 1
 
                         st.markdown("")
+
+                    # Submit button for form
+                    submit_col1, submit_col2 = st.columns([1, 3])
+                    with submit_col1:
+                        st.form_submit_button("✅ Save Inputs", use_container_width=True)
 
                     # Store manual inputs
                     st.session_state['manual_inputs'] = manual_inputs
