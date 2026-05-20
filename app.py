@@ -10,6 +10,13 @@ from openpyxl.styles import Font, PatternFill, Alignment
 
 st.set_page_config(page_title="Market Risk Score Generator", page_icon="📊", layout="wide")
 
+# Initialize session state for report persistence
+if 'report_run' not in st.session_state:
+    st.session_state.report_run = False
+    st.session_state.report_data = None
+    st.session_state.costar_file_id = None
+    st.session_state.manual_file_id = None
+
 # Formatting function for values
 def format_value(value, unit_type=None):
     """Format values based on type"""
@@ -247,8 +254,20 @@ with run_col:
 
 download_placeholder = download_col.empty()
 
+# Track if files have changed
+current_costar_id = id(costar_file) if costar_file else None
+current_manual_id = id(manual_file) if manual_file else None
+
+# Reset report if new files are uploaded
+if (current_costar_id != st.session_state.costar_file_id or
+    current_manual_id != st.session_state.manual_file_id):
+    st.session_state.report_run = False
+    st.session_state.report_data = None
+    st.session_state.costar_file_id = current_costar_id
+    st.session_state.manual_file_id = current_manual_id
+
 # Show disabled download button initially
-if not (costar_file and manual_file and run_clicked):
+if not st.session_state.report_run:
     with download_placeholder:
         st.download_button(
             label="📥 Download Market Risk Score",
@@ -259,8 +278,8 @@ if not (costar_file and manual_file and run_clicked):
             disabled=True
         )
 
-# Only proceed if both files exist AND run button was clicked
-if costar_file and manual_file and run_clicked:
+# Only proceed if both files exist AND run button was clicked AND report hasn't run yet
+if costar_file and manual_file and run_clicked and not st.session_state.report_run:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             costar_path = os.path.join(tmpdir, "costar.pdf")
@@ -269,6 +288,9 @@ if costar_file and manual_file and run_clicked:
                 f.write(costar_file.getbuffer())
 
             try:
+                # Store execution flag
+                st.session_state.report_run = True
+
                 # Extract from CoStar
                 st.subheader("📊 Market Risk Score Results")
 
@@ -276,6 +298,9 @@ if costar_file and manual_file and run_clicked:
                     extractor = CoStarExtractor(costar_path)
                     metrics = extractor.extract_all_metrics()
                     st.write("✅ CoStar extraction complete")
+
+                    # Store metrics in session state for persistence
+                    st.session_state.report_data = metrics
 
                     # Show extraction summary
                     found_metrics = sum(1 for v in metrics.values() if v is not None)
@@ -359,103 +384,108 @@ if costar_file and manual_file and run_clicked:
                 # Display scorecard as hierarchical structure with manual input
                 st.markdown("### Scorecard: Category Details")
 
-                # Dictionary to store manual inputs
-                manual_inputs = {}
+                # Use a form to prevent Enter from triggering reruns
+                with st.form("manual_inputs_form"):
+                    # Dictionary to store manual inputs
+                    manual_inputs = {}
 
-                for main_category, subcategories in scorecard_data.items():
-                    # Main category heading with color
-                    st.markdown(f"""
-                    <div class="main-category">
-                    {main_category}
-                    </div>
-                    """, unsafe_allow_html=True)
+                    for main_category, subcategories in scorecard_data.items():
+                        # Main category heading with color
+                        st.markdown(f"""
+                        <div class="main-category">
+                        {main_category}
+                        </div>
+                        """, unsafe_allow_html=True)
 
-                    subcat_num = 1
-                    for subcat, items in subcategories.items():
-                        if isinstance(items, dict):
-                            # Subcategory with color
-                            st.markdown(f"""
-                            <div class="subcategory">
-                            {subcat_num}. {subcat}
-                            </div>
-                            """, unsafe_allow_html=True)
+                        subcat_num = 1
+                        for subcat, items in subcategories.items():
+                            if isinstance(items, dict):
+                                # Subcategory with color
+                                st.markdown(f"""
+                                <div class="subcategory">
+                                {subcat_num}. {subcat}
+                                </div>
+                                """, unsafe_allow_html=True)
 
-                            # Display variables with manual input column
-                            var_data = []
-                            input_cols = {}
+                                # Display variables with manual input column
+                                var_data = []
+                                input_cols = {}
 
-                            for item_name, item_value in items.items():
-                                # Format the extracted value
-                                if item_value is None:
-                                    display_value = "❌ Not found"
-                                    unit_type = None
-                                elif isinstance(item_value, str) and "[From Manual Data]" in item_value:
-                                    display_value = item_value
-                                    unit_type = None
-                                else:
-                                    # Determine unit type for formatting
-                                    unit_type = None
-                                    if "rent" in item_name.lower() and "%" not in item_name.lower():
-                                        if "per" in item_name.lower() or "psf" in item_name.lower() or "sf" in item_name.lower():
-                                            unit_type = "psf"
-                                        else:
-                                            unit_type = "currency"
-                                    elif "%" in item_name.lower() or "rate" in item_name.lower():
-                                        unit_type = "percent"
+                                for item_name, item_value in items.items():
+                                    # Format the extracted value
+                                    if item_value is None:
+                                        display_value = "❌ Not found"
+                                        unit_type = None
+                                    elif isinstance(item_value, str) and "[From Manual Data]" in item_value:
+                                        display_value = item_value
+                                        unit_type = None
+                                    else:
+                                        # Determine unit type for formatting
+                                        unit_type = None
+                                        if "rent" in item_name.lower() and "%" not in item_name.lower():
+                                            if "per" in item_name.lower() or "psf" in item_name.lower() or "sf" in item_name.lower():
+                                                unit_type = "psf"
+                                            else:
+                                                unit_type = "currency"
+                                        elif "%" in item_name.lower() or "rate" in item_name.lower():
+                                            unit_type = "percent"
 
-                                    display_value = format_value(item_value, unit_type)
+                                        display_value = format_value(item_value, unit_type)
 
-                                var_data.append({
-                                    "Variable": item_name,
-                                    "Extracted Value": display_value,
-                                    "Manual Input": ""
-                                })
+                                    var_data.append({
+                                        "Variable": item_name,
+                                        "Extracted Value": display_value,
+                                        "Manual Input": ""
+                                    })
 
-                                input_cols[item_name] = len(var_data) - 1
+                                    input_cols[item_name] = len(var_data) - 1
 
-                            if var_data:
-                                # Display table with headers
-                                head_col1, head_col2, head_col3 = st.columns([1.3, 1.1, 1.1])
-                                with head_col1:
-                                    st.markdown("**Variable**")
-                                with head_col2:
-                                    st.markdown("**Extracted Value**")
-                                with head_col3:
-                                    st.markdown("**Manual Input**")
+                                if var_data:
+                                    # Display table with headers
+                                    head_col1, head_col2, head_col3 = st.columns([1.3, 1.1, 1.1])
+                                    with head_col1:
+                                        st.markdown("**Variable**")
+                                    with head_col2:
+                                        st.markdown("**Extracted Value**")
+                                    with head_col3:
+                                        st.markdown("**Manual Input**")
 
-                                # Display each row inline
-                                for idx, row in enumerate(var_data):
-                                    col1, col2, col3 = st.columns([1.3, 1.1, 1.1])
+                                    # Display each row inline
+                                    for idx, row in enumerate(var_data):
+                                        col1, col2, col3 = st.columns([1.3, 1.1, 1.1])
 
-                                    with col1:
-                                        st.write(row["Variable"])
+                                        with col1:
+                                            st.write(row["Variable"])
 
-                                    with col2:
-                                        st.write(row["Extracted Value"])
+                                        with col2:
+                                            st.write(row["Extracted Value"])
 
-                                    with col3:
-                                        item_name = row["Variable"]
-                                        manual_key = f"{main_category}_{subcat}_{item_name}".replace(" ", "_").replace("(", "").replace(")", "").replace("%", "")
-                                        manual_inputs[manual_key] = st.text_input(
-                                            label=f"Input for {item_name}",
-                                            value="",
-                                            key=manual_key,
-                                            label_visibility="collapsed",
-                                            placeholder="Enter value"
-                                        )
+                                        with col3:
+                                            item_name = row["Variable"]
+                                            manual_key = f"{main_category}_{subcat}_{item_name}".replace(" ", "_").replace("(", "").replace(")", "").replace("%", "")
+                                            manual_inputs[manual_key] = st.text_input(
+                                                label=f"Input for {item_name}",
+                                                value="",
+                                                key=manual_key,
+                                                label_visibility="collapsed",
+                                                placeholder="Enter value"
+                                            )
 
-                            subcat_num += 1
-                        else:
-                            # Handle simple string items (no nested dict)
-                            st.markdown(f"""
-                            <div class="subcategory">
-                            {subcat_num}. {subcat}
-                            </div>
-                            """, unsafe_allow_html=True)
-                            st.write(items)
-                            subcat_num += 1
+                                subcat_num += 1
+                            else:
+                                # Handle simple string items (no nested dict)
+                                st.markdown(f"""
+                                <div class="subcategory">
+                                {subcat_num}. {subcat}
+                                </div>
+                                """, unsafe_allow_html=True)
+                                st.write(items)
+                                subcat_num += 1
 
-                    st.markdown("")
+                        st.markdown("")
+
+                    # Store manual inputs
+                    st.session_state['manual_inputs'] = manual_inputs
 
                 # Summary
                 st.info("✅ = Data from CoStar | ⚠️ = Requires manual data | ❌ = Not found in CoStar")
@@ -509,10 +539,9 @@ if costar_file and manual_file and run_clicked:
                         use_container_width=True
                     )
 
-                # Store manual inputs for later use if needed
-                st.session_state['manual_inputs'] = manual_inputs
-
             except Exception as e:
+                st.session_state.report_run = False
+                st.session_state.report_data = None
                 st.error(f"❌ Error: {str(e)}")
                 st.info("Make sure the PDF is a valid CoStar report.")
 
