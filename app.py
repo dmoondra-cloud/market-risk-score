@@ -3,10 +3,17 @@ from costar_extractor import CoStarExtractor
 import tempfile
 import os
 import pandas as pd
+from datetime import datetime
+from io import BytesIO
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment
 
 st.set_page_config(page_title="Market Risk Score Generator", page_icon="📊", layout="wide")
 
 st.title("📊 Market Risk Score Generator")
+
+# Property name input
+st.text_input("Property Name (for download file)", key="property_name", placeholder="e.g., Noma Flats, Spring Apartments")
 
 # File uploads
 col1, col2 = st.columns(2)
@@ -19,9 +26,16 @@ with col2:
     st.subheader("📋 Manual Data Document")
     manual_file = st.file_uploader("Upload manual data (Excel/PDF/Document)", type=["xlsx", "pdf", "docx"], key="manual")
 
-# Run button
+# Run button - 50% width on left, Download button on right
 if costar_file and manual_file:
-    if st.button("🚀 Run Market Score", use_container_width=True):
+    run_col, download_col = st.columns(2)
+
+    with run_col:
+        run_clicked = st.button("🚀 Run Market Score", use_container_width=True)
+
+    download_placeholder = download_col.empty()
+
+    if run_clicked:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             costar_path = os.path.join(tmpdir, "costar.pdf")
@@ -146,7 +160,8 @@ if costar_file and manual_file:
 
                             if var_data:
                                 df = pd.DataFrame(var_data)
-                                st.dataframe(df, use_container_width=True, hide_index=True)
+                                # Use st.table() to remove column formatting options
+                                st.table(df)
 
                             subcat_num += 1
                         else:
@@ -160,9 +175,55 @@ if costar_file and manual_file:
                 # Summary
                 st.info("✅ = Data from CoStar | ⚠️ = Requires manual data | ❌ = Not found in CoStar")
 
-                # Download prepared template
-                st.subheader("📥 Next Step")
-                st.write("Review the extracted data above. Fill in the ⚠️ variables from your manual data document, then generate final scores.")
+                # Create Excel file for download
+                excel_file = BytesIO()
+                wb = Workbook()
+                ws = wb.active
+                ws.title = "Market Risk Score"
+
+                # Add property name and date
+                ws['A1'] = "Market Risk Score Report"
+                ws['A1'].font = Font(bold=True, size=14)
+
+                property_name = st.session_state.get('property_name', 'Property')
+                ws['A2'] = f"Property: {property_name}"
+                ws['A3'] = f"Date: {datetime.now().strftime('%m.%d.%Y')}"
+
+                # Add extracted metrics
+                row = 5
+                ws['A5'] = "Extracted Metrics"
+                ws['A5'].font = Font(bold=True, size=12)
+
+                row = 6
+                for metric_name, metric_value in metrics.items():
+                    ws[f'A{row}'] = metric_name
+                    if metric_value is None:
+                        ws[f'B{row}'] = "Not found"
+                    else:
+                        ws[f'B{row}'] = metric_value
+                    row += 1
+
+                # Adjust column widths
+                ws.column_dimensions['A'].width = 40
+                ws.column_dimensions['B'].width = 20
+
+                wb.save(excel_file)
+                excel_file.seek(0)
+
+                # Generate filename
+                date_str = datetime.now().strftime('%m.%d.%Y')
+                property_name_clean = st.session_state.get('property_name', 'Property').replace(" ", "_")
+                filename = f"{property_name_clean}_Market Risk Score_{date_str}.xlsx"
+
+                # Show download button in the placeholder
+                with download_placeholder:
+                    st.download_button(
+                        label="📥 Download Market Risk Score",
+                        data=excel_file,
+                        file_name=filename,
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True
+                    )
 
             except Exception as e:
                 st.error(f"❌ Error: {str(e)}")
