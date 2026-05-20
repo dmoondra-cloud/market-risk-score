@@ -452,7 +452,7 @@ if costar_file and manual_file and run_clicked and not st.session_state.report_r
 
                                     # Display each row inline
                                     for idx, row in enumerate(var_data):
-                                        col1, col2, col3 = st.columns([1.3, 1.1, 1.1])
+                                        col1, col2, col3, col4 = st.columns([1.3, 1.1, 1, 0.8])
 
                                         with col1:
                                             st.write(row["Variable"])
@@ -463,6 +463,17 @@ if costar_file and manual_file and run_clicked and not st.session_state.report_r
                                         with col3:
                                             item_name = row["Variable"]
                                             manual_key = f"{main_category}_{subcat}_{item_name}".replace(" ", "_").replace("(", "").replace(")", "").replace("%", "")
+
+                                            # Determine unit type for this field
+                                            unit_type = None
+                                            if "rent" in item_name.lower() and "%" not in item_name.lower():
+                                                if "per" in item_name.lower() or "psf" in item_name.lower() or "sf" in item_name.lower():
+                                                    unit_type = "psf"
+                                                else:
+                                                    unit_type = "currency"
+                                            elif "%" in item_name.lower() or "rate" in item_name.lower():
+                                                unit_type = "percent"
+
                                             manual_inputs[manual_key] = st.text_input(
                                                 label=f"Input for {item_name}",
                                                 value="",
@@ -470,6 +481,26 @@ if costar_file and manual_file and run_clicked and not st.session_state.report_r
                                                 label_visibility="collapsed",
                                                 placeholder="Enter value"
                                             )
+
+                                        with col4:
+                                            # Show format hint and real-time preview
+                                            manual_value = manual_inputs.get(manual_key, "")
+                                            if manual_value:
+                                                try:
+                                                    formatted = format_value(float(manual_value), unit_type)
+                                                    st.markdown(f"<span style='color: #1e3a8a; font-weight: 600; font-size: 12px;'>{formatted}</span>", unsafe_allow_html=True)
+                                                except:
+                                                    st.markdown("<span style='color: #e11d48; font-size: 12px;'>Invalid</span>", unsafe_allow_html=True)
+                                            else:
+                                                # Show format hint
+                                                if unit_type == "percent":
+                                                    st.markdown("<span style='color: #cbd5e1; font-size: 11px;'>e.g. 4</span>", unsafe_allow_html=True)
+                                                elif unit_type == "currency":
+                                                    st.markdown("<span style='color: #cbd5e1; font-size: 11px;'>e.g. 1290</span>", unsafe_allow_html=True)
+                                                elif unit_type == "psf":
+                                                    st.markdown("<span style='color: #cbd5e1; font-size: 11px;'>e.g. 2.21</span>", unsafe_allow_html=True)
+                                                else:
+                                                    st.markdown("<span style='color: #cbd5e1; font-size: 11px;'>number</span>", unsafe_allow_html=True)
 
                                 subcat_num += 1
                             else:
