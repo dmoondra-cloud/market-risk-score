@@ -100,24 +100,30 @@ st.markdown("""
 
 st.title("📊 Market Risk Score Generator")
 
-# Property name input
-st.text_input("Property Name (for download file)", key="property_name", placeholder="e.g., Noma Flats, Spring Apartments")
-
 # File uploads
 col1, col2 = st.columns(2)
 
 with col1:
     st.subheader("📄 CoStar Report")
     costar_file = st.file_uploader("Upload CoStar PDF", type="pdf", key="costar")
-    # Auto-recognize property name from filename
-    if costar_file and not st.session_state.get('property_name_set'):
-        property_name_from_file = costar_file.name.replace('.pdf', '').replace('_', ' ')
-        st.session_state['property_name'] = property_name_from_file
-        st.session_state['property_name_set'] = True
 
 with col2:
     st.subheader("📋 Manual Data Document")
     manual_file = st.file_uploader("Upload manual data (Excel/PDF/Document)", type=["xlsx", "pdf", "docx"], key="manual")
+
+# Auto-recognize property name from CoStar filename
+if costar_file:
+    property_name_from_file = costar_file.name.replace('.pdf', '').replace('_', ' ')
+    property_name_input = st.text_input(
+        "Property Name (for download file)",
+        value=property_name_from_file,
+        placeholder="e.g., Noma Flats, Spring Apartments"
+    )
+else:
+    property_name_input = st.text_input(
+        "Property Name (for download file)",
+        placeholder="e.g., Noma Flats, Spring Apartments"
+    )
 
 # Run button - 50% width on left, Download button on right
 if costar_file and manual_file:
@@ -300,8 +306,7 @@ if costar_file and manual_file:
                 ws['A1'] = "Market Risk Score Report"
                 ws['A1'].font = Font(bold=True, size=14)
 
-                property_name = st.session_state.get('property_name', 'Property')
-                ws['A2'] = f"Property: {property_name}"
+                ws['A2'] = f"Property: {property_name_input}"
                 ws['A3'] = f"Date: {datetime.now().strftime('%m.%d.%Y')}"
 
                 # Add extracted metrics
@@ -327,7 +332,7 @@ if costar_file and manual_file:
 
                 # Generate filename
                 date_str = datetime.now().strftime('%m.%d.%Y')
-                property_name_clean = st.session_state.get('property_name', 'Property').replace(" ", "_")
+                property_name_clean = property_name_input.replace(" ", "_") if property_name_input else "Property"
                 filename = f"{property_name_clean}_Market Risk Score_{date_str}.xlsx"
 
                 # Show download button in the placeholder
