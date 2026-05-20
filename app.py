@@ -381,15 +381,10 @@ if costar_file and manual_file and run_clicked and not st.session_state.report_r
                     }
                 }
 
-                # Display scorecard as hierarchical structure with manual input
+                # Display scorecard as hierarchical structure
                 st.markdown("### Scorecard: Category Details")
 
-                # Use a form to prevent Enter from triggering reruns
-                with st.form("manual_inputs_form"):
-                    # Dictionary to store manual inputs
-                    manual_inputs = {}
-
-                    for main_category, subcategories in scorecard_data.items():
+                for main_category, subcategories in scorecard_data.items():
                         # Main category heading with color
                         st.markdown(f"""
                         <div class="main-category">
@@ -407,20 +402,15 @@ if costar_file and manual_file and run_clicked and not st.session_state.report_r
                                 </div>
                                 """, unsafe_allow_html=True)
 
-                                # Display variables with manual input column
+                                # Display variables
                                 var_data = []
-                                input_cols = {}
 
                                 for item_name, item_value in items.items():
-                                    # Format the extracted value
                                     if item_value is None:
                                         display_value = "❌ Not found"
-                                        unit_type = None
                                     elif isinstance(item_value, str) and "[From Manual Data]" in item_value:
                                         display_value = item_value
-                                        unit_type = None
                                     else:
-                                        # Determine unit type for formatting
                                         unit_type = None
                                         if "rent" in item_name.lower() and "%" not in item_name.lower():
                                             if "per" in item_name.lower() or "psf" in item_name.lower() or "sf" in item_name.lower():
@@ -432,63 +422,23 @@ if costar_file and manual_file and run_clicked and not st.session_state.report_r
 
                                         display_value = format_value(item_value, unit_type)
 
-                                    var_data.append({
-                                        "Variable": item_name,
-                                        "Extracted Value": display_value,
-                                        "Manual Input": ""
-                                    })
-
-                                    input_cols[item_name] = len(var_data) - 1
+                                    var_data.append({"Variable": item_name, "Value": display_value})
 
                                 if var_data:
-                                    # Display table with headers - centered
-                                    head_col1, head_col2, head_col3 = st.columns([1.3, 1.1, 1.1])
+                                    # Display table with headers
+                                    head_col1, head_col2 = st.columns([1.5, 1])
                                     with head_col1:
-                                        st.markdown("<b>Variable</b>")
+                                        st.markdown("**Variable**")
                                     with head_col2:
-                                        st.markdown("<div style='text-align: center;'><b>Extracted Value</b></div>", unsafe_allow_html=True)
-                                    with head_col3:
-                                        st.markdown("<div style='text-align: center;'><b>Manual Input</b></div>", unsafe_allow_html=True)
+                                        st.markdown("<div style='text-align: center;'><b>Value</b></div>", unsafe_allow_html=True)
 
-                                    # Display each row inline
-                                    for idx, row in enumerate(var_data):
-                                        col1, col2, col3 = st.columns([1.3, 1.1, 1.1])
-
+                                    # Display each row
+                                    for row in var_data:
+                                        col1, col2 = st.columns([1.5, 1])
                                         with col1:
                                             st.write(row["Variable"])
-
                                         with col2:
-                                            st.markdown(f"<div style='text-align: center;'>{row['Extracted Value']}</div>", unsafe_allow_html=True)
-
-                                        with col3:
-                                            item_name = row["Variable"]
-                                            manual_key = f"{main_category}_{subcat}_{item_name}".replace(" ", "_").replace("(", "").replace(")", "").replace("%", "").replace("$", "")
-
-                                            # Determine unit type for this field
-                                            unit_type = None
-                                            if "rent" in item_name.lower() and "%" not in item_name.lower():
-                                                if "per" in item_name.lower() or "psf" in item_name.lower() or "sf" in item_name.lower():
-                                                    unit_type = "psf"
-                                                else:
-                                                    unit_type = "currency"
-                                            elif "%" in item_name.lower() or "rate" in item_name.lower():
-                                                unit_type = "percent"
-
-                                            input_val = st.text_input(
-                                                label=f"Input for {item_name}",
-                                                value="",
-                                                key=manual_key,
-                                                label_visibility="collapsed"
-                                            )
-                                            manual_inputs[manual_key] = input_val
-
-                                            # Show real-time formatted preview
-                                            if input_val and input_val.strip():
-                                                try:
-                                                    formatted = format_value(float(input_val), unit_type)
-                                                    st.write(f"✓ {formatted}")
-                                                except (ValueError, TypeError):
-                                                    st.write("⚠️ Invalid")
+                                            st.markdown(f"<div style='text-align: center;'>{row['Value']}</div>", unsafe_allow_html=True)
 
                                 subcat_num += 1
                             else:
@@ -502,14 +452,6 @@ if costar_file and manual_file and run_clicked and not st.session_state.report_r
                                 subcat_num += 1
 
                         st.markdown("")
-
-                    # Submit button for form
-                    submit_col1, submit_col2 = st.columns([1, 3])
-                    with submit_col1:
-                        st.form_submit_button("✅ Save Inputs", use_container_width=True)
-
-                    # Store manual inputs
-                    st.session_state['manual_inputs'] = manual_inputs
 
                 # Summary
                 st.info("✅ = Data from CoStar | ⚠️ = Requires manual data | ❌ = Not found in CoStar")
@@ -568,6 +510,112 @@ if costar_file and manual_file and run_clicked and not st.session_state.report_r
                 st.session_state.report_data = None
                 st.error(f"❌ Error: {str(e)}")
                 st.info("Make sure the PDF is a valid CoStar report.")
+
+# Display scorecard if report has been run (persists after form submission)
+elif st.session_state.report_run and costar_file and manual_file and st.session_state.report_data:
+    st.subheader("📊 Market Risk Score Results")
+
+    metrics = st.session_state.report_data
+    found_metrics = sum(1 for v in metrics.values() if v is not None)
+    total_metrics = len(metrics)
+    st.write(f"📈 Found {found_metrics}/{total_metrics} metrics")
+
+    # Show enabled download button
+    with download_placeholder:
+        excel_file = BytesIO()
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Market Risk Score"
+
+        ws['A1'] = "Market Risk Score Report"
+        ws['A1'].font = Font(bold=True, size=14)
+        ws['A2'] = f"Property: {property_name_input}"
+        ws['A3'] = f"Date: {datetime.now().strftime('%m.%d.%Y')}"
+
+        row = 5
+        ws['A5'] = "Extracted Metrics"
+        ws['A5'].font = Font(bold=True, size=12)
+
+        row = 6
+        for metric_name, metric_value in metrics.items():
+            ws[f'A{row}'] = metric_name
+            if metric_value is None:
+                ws[f'B{row}'] = "Not found"
+            else:
+                ws[f'B{row}'] = metric_value
+            row += 1
+
+        ws.column_dimensions['A'].width = 40
+        ws.column_dimensions['B'].width = 20
+
+        wb.save(excel_file)
+        excel_file.seek(0)
+
+        date_str = datetime.now().strftime('%m.%d.%Y')
+        property_name_clean = property_name_input.replace(" ", "_") if property_name_input else "Property"
+        filename = f"{property_name_clean}_Market Risk Score_{date_str}.xlsx"
+
+        st.download_button(
+            label="📥 Download Market Risk Score",
+            data=excel_file,
+            file_name=filename,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
+
+    st.info("✅ = Data from CoStar | ⚠️ = Requires manual data | ❌ = Not found in CoStar")
+
+    # Display scorecard
+    st.markdown("### Scorecard: Category Details")
+
+    for main_category, subcategories in scorecard_data.items():
+        st.markdown(f"<div class='main-category'>{main_category}</div>", unsafe_allow_html=True)
+
+        subcat_num = 1
+        for subcat, items in subcategories.items():
+            if isinstance(items, dict):
+                st.markdown(f"<div class='subcategory'>{subcat_num}. {subcat}</div>", unsafe_allow_html=True)
+
+                var_data = []
+                for item_name, item_value in items.items():
+                    if item_value is None:
+                        display_value = "❌ Not found"
+                    elif isinstance(item_value, str) and "[From Manual Data]" in item_value:
+                        display_value = item_value
+                    else:
+                        unit_type = None
+                        if "rent" in item_name.lower() and "%" not in item_name.lower():
+                            if "per" in item_name.lower() or "psf" in item_name.lower() or "sf" in item_name.lower():
+                                unit_type = "psf"
+                            else:
+                                unit_type = "currency"
+                        elif "%" in item_name.lower() or "rate" in item_name.lower():
+                            unit_type = "percent"
+                        display_value = format_value(item_value, unit_type)
+
+                    var_data.append({"Variable": item_name, "Value": display_value})
+
+                if var_data:
+                    head_col1, head_col2 = st.columns([1.5, 1])
+                    with head_col1:
+                        st.markdown("**Variable**")
+                    with head_col2:
+                        st.markdown("<div style='text-align: center;'><b>Value</b></div>", unsafe_allow_html=True)
+
+                    for row in var_data:
+                        col1, col2 = st.columns([1.5, 1])
+                        with col1:
+                            st.write(row["Variable"])
+                        with col2:
+                            st.markdown(f"<div style='text-align: center;'>{row['Value']}</div>", unsafe_allow_html=True)
+
+                subcat_num += 1
+            else:
+                st.markdown(f"<div class='subcategory'>{subcat_num}. {subcat}</div>", unsafe_allow_html=True)
+                st.write(items)
+                subcat_num += 1
+
+        st.markdown("")
 
 else:
     st.info("👆 Upload both documents to get started")
