@@ -117,17 +117,20 @@ if costar_file and manual_file:
                     }
                 }
 
-                # Display scorecard as structured table
+                # Display scorecard as hierarchical structure (no repeated categories)
                 st.markdown("### Scorecard: Category Details")
 
                 for main_category, subcategories in scorecard_data.items():
                     st.markdown(f"#### {main_category}")
 
-                    table_data = []
                     subcat_num = 1
                     for subcat, items in subcategories.items():
                         if isinstance(items, dict):
-                            subcat_label = f"{subcat_num}. {subcat}"
+                            # Display subcategory name once
+                            st.markdown(f"**{subcat_num}. {subcat}**")
+
+                            # Display variables under this subcategory
+                            var_data = []
                             for item_name, item_value in items.items():
                                 if item_value is None:
                                     display_value = "❌ Not found"
@@ -136,23 +139,21 @@ if costar_file and manual_file:
                                 else:
                                     display_value = str(item_value)
 
-                                table_data.append({
-                                    "Category": subcat_label,
+                                var_data.append({
                                     "Variable": item_name,
                                     "Value": display_value
                                 })
+
+                            if var_data:
+                                df = pd.DataFrame(var_data)
+                                st.dataframe(df, use_container_width=True, hide_index=True)
+
                             subcat_num += 1
                         else:
-                            table_data.append({
-                                "Category": f"{subcat_num}. {subcat}",
-                                "Variable": "-",
-                                "Value": items
-                            })
+                            # Handle simple string items (no nested dict)
+                            st.markdown(f"**{subcat_num}. {subcat}**")
+                            st.write(items)
                             subcat_num += 1
-
-                    if table_data:
-                        df = pd.DataFrame(table_data)
-                        st.dataframe(df, use_container_width=True, hide_index=True)
 
                     st.markdown("---")
 
