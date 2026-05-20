@@ -111,30 +111,27 @@ with col2:
     st.subheader("📋 Manual Data Document")
     manual_file = st.file_uploader("Upload manual data (Excel/PDF/Document)", type=["xlsx", "pdf", "docx"], key="manual")
 
-# Auto-recognize property name from CoStar filename
+# Auto-recognize property name from CoStar filename (no UI input field)
 if costar_file:
-    property_name_from_file = costar_file.name.replace('.pdf', '').replace('_', ' ')
-    property_name_input = st.text_input(
-        "Property Name (for download file)",
-        value=property_name_from_file,
-        placeholder="e.g., Noma Flats, Spring Apartments"
-    )
+    property_name_input = costar_file.name.replace('.pdf', '').replace('_', ' ')
 else:
-    property_name_input = st.text_input(
-        "Property Name (for download file)",
-        placeholder="e.g., Noma Flats, Spring Apartments"
-    )
+    property_name_input = "Property"
 
 # Run button - 50% width on left, Download button on right
-if costar_file and manual_file:
-    run_col, download_col = st.columns(2)
+run_col, download_col = st.columns(2)
 
-    with run_col:
-        run_clicked = st.button("🚀 Run Market Score", use_container_width=True)
+with run_col:
+    # Button is disabled if both files aren't uploaded
+    run_clicked = st.button(
+        "🚀 Run Market Score",
+        use_container_width=True,
+        disabled=(costar_file is None or manual_file is None)
+    )
 
-    download_placeholder = download_col.empty()
+download_placeholder = download_col.empty()
 
-    if run_clicked:
+# Only proceed if both files exist AND run button was clicked
+if costar_file and manual_file and run_clicked:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             costar_path = os.path.join(tmpdir, "costar.pdf")
@@ -268,7 +265,7 @@ if costar_file and manual_file:
 
                             if var_data:
                                 df = pd.DataFrame(var_data)
-                                # Use dataframe with disabled interactions and custom styling
+                                # Display table without interactive features
                                 st.dataframe(
                                     df,
                                     use_container_width=True,
@@ -276,8 +273,7 @@ if costar_file and manual_file:
                                     column_config={
                                         "Variable": st.column_config.TextColumn(width="medium"),
                                         "Value": st.column_config.TextColumn(width="medium"),
-                                    },
-                                    disabled=True
+                                    }
                                 )
 
                             subcat_num += 1
